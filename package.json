@@ -1,0 +1,29 @@
+{
+  "name": "synthex",
+  "version": "0.1.0",
+  "description": "Type-safe LLM response simulation with streaming & error injection",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nick-vanduijn/synthex.git"
+  },
+  "keywords": [
+    "llm",
+    "simulation",
+    "streaming",
+    "testing"
+  ],
+  "author": "nick-vanduijn",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nick-vanduijn/synthex/issues"
+  },
+  "homepage": "https://github.com/nick-vanduijn/synthex#readme"
+}
