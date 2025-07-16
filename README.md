@@ -62,17 +62,24 @@ When building AI or LLM-powered applications, testing and prototyping can be pai
 npm install synthex
 ```
 
+
 ## Features
 
-* **Type-safe schema builder**: primitives, objects, enums, unions, intersections
-* **Realistic mock data** for testing, prototyping, or LLM scaffolding
-* **Conditional fields** with probabilities
-* **Simulated errors** for edge-case testing
-* **Streaming mock generation** — mimic LLM token flow
-* **Context-aware** field templates (e.g. IDs, tokens, slugs)
-* **Test-friendly metadata**: timestamps, token usage, finish reasons
-* **Composable** schema API, like Zod but mock-first
-* **Markdown & JSON formatters** for quick debugging
+- **Type-safe schema builder**: primitives, objects, enums, unions, intersections
+- **Realistic mock data** for testing, prototyping, or LLM scaffolding
+- **Conditional fields** with probabilities
+- **Simulated errors** for edge-case testing
+- **Streaming mock generation** — mimic LLM token flow
+- **Context-aware** field templates (e.g. IDs, tokens, slugs)
+- **Test-friendly metadata**: timestamps, token usage, finish reasons
+- **Composable** schema API, like Zod but mock-first
+- **Markdown & JSON formatters** for quick debugging
+- **Plugin system**: extend or override field generation logic
+- **Schema import/export**: JSON/YAML, CLI utilities
+- **LLM simulation**: hallucination (for all types, including enums), function-calling, streaming, error injection
+- **Performance profiling utility**: measure mock generation speed
+- **Lite entry point**: minimal bundle for browser or edge
+- **CI/CD ready**: robust tests, linting, and GitHub Actions
 
 ## Example Usage
 
@@ -135,15 +142,28 @@ console.log(mock.data);
 | Error Simulation   | `.simulateError(true)`             |
 | Streaming Output   | `generator.streamGenerate()`       |
 
-## Streaming / LLM Simulation
+
+## Streaming / LLM Simulation & Hallucination
 
 ```ts
-const stream = generator.streamGenerate(userSchema, { chunkSize: 10, delayMs: 50 });
+const generator = new MockGenerator({
+  hallucinate: true, // Enable hallucination for all fields
+  hallucinationProbability: 0.5, // 50% chance per field
+  seed: 123,
+});
+const mock = generator.generate(userSchema);
+console.log(mock.data);
 
+// Streaming (mimic LLM token flow)
+const stream = generator.streamGenerate(userSchema, { chunkSize: 10, delayMs: 50 });
 for await (const chunk of stream) {
   process.stdout.write(chunk);
 }
 ```
+
+**Advanced:**
+- Hallucination works for all field types (string, number, boolean, array, object, enum, etc.)
+- Simulate OpenAI-style function-calling, error injection, and role-based responses
 
 ## Why Synthex?
 
@@ -155,32 +175,45 @@ for await (const chunk of stream) {
 | Streaming LLM-like output    |   ✅     | ❌  |  ❌   |        ❌         |
 | Composable API               |   ✅     | ✅  |  ❌   |   ⚠️ Partial     |
 
-## CLI Demo
 
-```bash
-node examples/form-demo.cjs
-```
+## CLI & Utilities
 
-```tex AI Form Fille
-Enter fields (comma-separated): name,email,age
+- **Schema import/export:**
+  ```bash
+  node bin/schema-io.js import ./schema.yaml
+  node bin/schema-io.js export ./schema.json
+  ```
+- **Performance profiling:**
+  ```ts
+  import { profileMockGeneration } from 'synthex/perf';
+  profileMockGeneration(userSchema, 1000);
+  ```
+- **Lite entry point:**
+  ```ts
+  import { s, MockGenerator } from 'synthex/lite';
+  ```
+- **Examples:**
+  - `node examples/form-demo.cjs` — Interactive form mocker
+  - `node examples/llm-demo.cjs` — LLM-style streaming and error demo
+  - `node examples/advanced-demo.cjs` — Advanced: nested, error, streaming, and conditional fields
 
-{
-  "name": "Jane Doe",
-  "email": "jane.doe@example.com",
-  "age": 28
-}
-```
 
 ## FAQ
 
 **Q: What makes this better than Faker?**
-A: Synthex combines type-safety, streaming support, error injection, and realistic test metadata. Ideal for LLMs and structured APIs.
+A: Synthex combines type-safety, streaming support, error injection, hallucination, and realistic test metadata. Ideal for LLMs and structured APIs.
 
 **Q: Can I use this to test OpenAI function-calling?**
-A: Yes! It’s designed to simulate real-world outputs for tools/functions.
+A: Yes! It’s designed to simulate real-world outputs for tools/functions, including function-calling mocks and streaming.
 
 **Q: Does it support nesting?**
 A: Yup. Nest objects, arrays, even deeply nested enums and conditional fields.
+
+**Q: How do I handle type-only tests and linting?**
+A: Type-only tests (e.g., `test/types.test.ts`) may trigger `@typescript-eslint/no-unused-vars` for schema variables used only for type inference. Suppress these with `// eslint-disable-next-line @typescript-eslint/no-unused-vars` or use a dummy test to satisfy Jest.
+
+**Q: How do I extend Synthex?**
+A: Use the plugin system to override or extend field generation logic. See [docs/RECIPES.md](docs/RECIPES.md) for advanced patterns.
 
 ## Contributing
 

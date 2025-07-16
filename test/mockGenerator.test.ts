@@ -64,7 +64,6 @@ describe("MockGenerator", () => {
         new SchemaForm({
           name: "InvalidString",
           fields: { str: s.string().min(10).max(5).build() },
-          infer: undefined,
         })
       )
     ).toThrow(SyntexError);
@@ -72,7 +71,6 @@ describe("MockGenerator", () => {
       name: "Bad",
       version: "1.0.0",
       fields: {},
-      infer: undefined,
     });
     expect(() => generator.generate(badSchema)).toThrow(SyntexError);
   });

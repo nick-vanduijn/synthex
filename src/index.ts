@@ -1,7 +1,72 @@
-/*
-Synthex: A mocking library for TypeScript made to mimic structured outputs from LLMs.
-Copyright (c) 2025-present, Synthex Authors.
-*/
+import * as fs from "fs";
+
+let yaml: any = undefined;
+// NOTE: For YAML support, ensure 'js-yaml' is installed in your project.
+// Use dynamic import if needed in a Node.js environment.
+// Example: const yaml = await import('js-yaml');
+
+class SchemaIO {
+  /**
+   * Serialize a schema to JSON string.
+   */
+  static toJSON(schema: SchemaForm): string {
+    return JSON.stringify(schema, null, 2);
+  }
+
+  /**
+   * Deserialize a schema from JSON string.
+   */
+  static fromJSON(json: string): SchemaForm {
+    const obj = JSON.parse(json);
+    return new SchemaForm(obj);
+  }
+
+  /**
+   * Serialize a schema to YAML string (if js-yaml is available).
+   */
+  static toYAML(schema: SchemaForm): string {
+    if (!yaml) throw new Error("js-yaml not installed");
+    return yaml.dump(schema);
+  }
+
+  /**
+   * Deserialize a schema from YAML string (if js-yaml is available).
+   */
+  static fromYAML(yamlStr: string): SchemaForm {
+    if (!yaml) throw new Error("js-yaml not installed");
+    const obj = yaml.load(yamlStr);
+    return new SchemaForm(obj);
+  }
+
+  /**
+   * Save a schema to a file (JSON or YAML by extension).
+   */
+  static saveToFile(schema: SchemaForm, filePath: string) {
+    if (filePath.endsWith(".json")) {
+      fs.writeFileSync(filePath, SchemaIO.toJSON(schema), "utf8");
+    } else if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
+      fs.writeFileSync(filePath, SchemaIO.toYAML(schema), "utf8");
+    } else {
+      throw new Error("Unsupported file extension");
+    }
+  }
+
+  /**
+   * Load a schema from a file (JSON or YAML by extension).
+   */
+  static loadFromFile(filePath: string): SchemaForm {
+    const content = fs.readFileSync(filePath, "utf8");
+    if (filePath.endsWith(".json")) {
+      return SchemaIO.fromJSON(content);
+    } else if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
+      return SchemaIO.fromYAML(content);
+    } else {
+      throw new Error("Unsupported file extension");
+    }
+  }
+}
+
+export { SchemaIO };
 
 /**
  * Type for a literal value or a weighted object for enums.
@@ -65,7 +130,11 @@ class SchemaForm<T = any> implements SchemaField<T> {
   name?: string;
   version?: string;
   fields: Record<string, SchemaField<any>>;
-  infer: T;
+  /**
+   * This property is only for type extraction, not runtime use.
+   * Use as: type MyType = typeof schema.infer
+   */
+  declare readonly infer: T;
   required?: boolean;
   min?: number;
   max?: number;
@@ -96,7 +165,6 @@ class SchemaForm<T = any> implements SchemaField<T> {
     name?: string;
     version?: string;
     fields: Record<string, SchemaField<any>>;
-    infer?: T;
     required?: boolean;
     min?: number;
     max?: number;
@@ -126,7 +194,6 @@ class SchemaForm<T = any> implements SchemaField<T> {
     this.name = params.name;
     this.version = params.version;
     this.fields = params.fields;
-    this.infer = params.infer as T;
     this.required = params.required;
     this.min = params.min;
     this.max = params.max;
@@ -212,6 +279,11 @@ interface MockGeneratorOptions {
   quota?: number;
   quotaUsed?: number;
   abortSignal?: AbortSignal;
+  hallucinate?: boolean;
+  hallucinationProbability?: number;
+  simulateFunctionCall?: boolean;
+  streamChunkSize?: number;
+  streamDelayMs?: number;
 }
 
 /**
@@ -376,16 +448,35 @@ class RandomGenerator {
 /**
  * Main mock generator class that creates structured data based on schemas.
  */
+type SynthexPlugin = {
+  name: string;
+  onInit?: (generator: MockGenerator) => void;
+  onGenerateField?: (
+    field: SchemaField,
+    context: Record<string, any>,
+    currentData: Record<string, any>,
+    rng: RandomGenerator
+  ) => any | undefined;
+};
+
 class MockGenerator {
   private rng: RandomGenerator;
   private options: MockGeneratorOptions;
   private requestCount: number = 0;
   private lastReset: number = Date.now();
   private registeredSchemas: Record<string, SchemaForm> = {};
+  private static _plugins: SynthexPlugin[] = [];
+  private _plugins: SynthexPlugin[] = [];
+
+  static registerPlugin(plugin: SynthexPlugin) {
+    MockGenerator._plugins.push(plugin);
+  }
 
   constructor(options: MockGeneratorOptions = {}) {
     this.options = options;
     this.rng = new RandomGenerator(options.seed, options.randomness);
+    this._plugins = [...MockGenerator._plugins];
+    this._plugins.forEach((p) => p.onInit?.(this));
   }
 
   /**
@@ -577,13 +668,15 @@ class MockGenerator {
 
   async *streamGenerate<T>(
     schema: SchemaForm<T>,
-    chunkSize: number = 1,
-    delayMs: number = 50
+    chunkSize?: number,
+    delayMs?: number
   ): AsyncGenerator<Record<string, any>, void, unknown> {
     this.validateSchema(schema);
     const keys = Object.keys(schema.fields);
     let i = 0;
     const fullData: Record<string, any> = {};
+    const chunkSz = chunkSize ?? this.options.streamChunkSize ?? 1;
+    const delay = delayMs ?? this.options.streamDelayMs ?? 50;
 
     while (i < keys.length) {
       if (this.options.abortSignal?.aborted) {
@@ -593,7 +686,7 @@ class MockGenerator {
       const chunk: Record<string, any> = {};
       const globalContext = this.options.context || {};
 
-      for (let j = 0; j < chunkSize && i < keys.length; j++, i++) {
+      for (let j = 0; j < chunkSz && i < keys.length; j++, i++) {
         const key = keys[i];
         const field = schema.fields[key];
 
@@ -604,15 +697,64 @@ class MockGenerator {
           (!field.condition || field.condition(fullData, globalContext));
 
         if (shouldInclude) {
-          const value = this.generateFieldValue(field, globalContext, fullData);
+          let value = this.generateFieldValue(field, globalContext, fullData);
+          if (
+            this.options.hallucinate &&
+            this.rng.random() < (this.options.hallucinationProbability ?? 0.1)
+          ) {
+            value = this.simulateHallucination(field);
+          }
           chunk[key] = value;
           fullData[key] = value;
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await new Promise((resolve) => setTimeout(resolve, delay));
       yield chunk;
     }
+  }
+
+  /**
+   * Simulate hallucination for a field (random or nonsense value).
+   */
+  private simulateHallucination(field: SchemaField): any {
+    switch (field.type) {
+      case "string":
+        return this.rng.randomString(12, "!@#$%^&*()_+1234567890abcdef");
+      case "number":
+        return this.rng.randomInt(10000, 99999);
+      case "boolean":
+        return this.rng.random() > 0.5;
+      case "array":
+        return [this.simulateHallucination(field.items!)];
+      case "object":
+        return { hallucinated: true };
+      case "enum":
+        return "???";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Simulate an OpenAI function/tool call response.
+   */
+  simulateFunctionCall(
+    functionName: string,
+    args: Record<string, any> = {}
+  ): any {
+    if (!this.options.simulateFunctionCall)
+      throw new SyntexError(
+        "Function call simulation not enabled",
+        "NO_FUNCTION_CALL_SIM"
+      );
+    return {
+      object: "function_call",
+      function: functionName,
+      arguments: args,
+      result: { success: true, data: this.rng.randomString(8) },
+      finish_reason: "function_call",
+    };
   }
 
   formatOutput(response: MockResponse): string {
@@ -760,7 +902,14 @@ class MockGenerator {
         (!field.condition || field.condition(data, globalContext));
 
       if (shouldInclude) {
-        data[fieldName] = this.generateFieldValue(field, globalContext, data);
+        let value = this.generateFieldValue(field, globalContext, data);
+        if (
+          this.options.hallucinate &&
+          this.rng.random() < (this.options.hallucinationProbability ?? 0.1)
+        ) {
+          value = this.simulateHallucination(field);
+        }
+        data[fieldName] = value;
       }
     }
     return data;
@@ -787,10 +936,18 @@ class MockGenerator {
     globalContext: Record<string, any> = {},
     currentData: Record<string, any> = {}
   ): any {
+    for (const plugin of this._plugins) {
+      const result = plugin.onGenerateField?.(
+        field,
+        globalContext,
+        currentData,
+        this.rng
+      );
+      if (result !== undefined) return result;
+    }
     if (field.generateFn) {
       return field.generateFn(globalContext, currentData, this.rng);
     }
-
     switch (field.type) {
       case "string":
         return this.generateString(field, globalContext, currentData);
@@ -1273,13 +1430,13 @@ class SObject<
     const compiledFields: Record<string, SchemaField<any>> = Object.fromEntries(
       Object.entries(this._fields).map(([k, v]) => [k, v.build()])
     );
-    return new SchemaForm<TInferred>({
+    const schema = new SchemaForm<TInferred>({
       name,
       version,
       fields: compiledFields,
-      infer: undefined as any,
       properties: compiledFields,
     });
+    return schema as SchemaForm<TInferred> & { readonly infer: TInferred };
   }
 }
 
@@ -1288,7 +1445,15 @@ class SUnion<TTypes extends SBase[]> extends SBase<InferSBase<TTypes[number]>> {
     super("union");
     this._field.unionTypes = types.map((t) => t.build());
   }
+  build(): SchemaField<InferSBase<TTypes[number]>> & {
+    readonly infer: InferSBase<TTypes[number]>;
+  } {
+    return { ...this._field } as SchemaField<InferSBase<TTypes[number]>> & {
+      readonly infer: InferSBase<TTypes[number]>;
+    };
+  }
 }
+
 class SIntersection<TTypes extends SBase[]> extends SBase<
   InferSBase<TTypes[number]>
 > {
@@ -1296,11 +1461,26 @@ class SIntersection<TTypes extends SBase[]> extends SBase<
     super("intersection");
     this._field.intersectionTypes = types.map((t) => t.build());
   }
+  build(): SchemaField<InferSBase<TTypes[number]>> & {
+    readonly infer: InferSBase<TTypes[number]>;
+  } {
+    return { ...this._field } as SchemaField<InferSBase<TTypes[number]>> & {
+      readonly infer: InferSBase<TTypes[number]>;
+    };
+  }
 }
+
 class SNullable<TType extends SBase> extends SBase<InferSBase<TType> | null> {
   constructor(type: TType) {
     super("nullable");
     this._field.nullableType = type.build();
+  }
+  build(): SchemaField<InferSBase<TType> | null> & {
+    readonly infer: InferSBase<TType> | null;
+  } {
+    return { ...this._field } as SchemaField<InferSBase<TType> | null> & {
+      readonly infer: InferSBase<TType> | null;
+    };
   }
 }
 class SReference extends SBase<any> {
@@ -1415,7 +1595,6 @@ class SchemaUtils {
       name,
       version: "1.0.0",
       fields: fields as Record<string, SchemaField<any>>,
-      infer: undefined,
       properties: fields as Record<string, SchemaField<any>>,
     });
   }
@@ -1681,4 +1860,5 @@ export {
   SnapshotUtils,
   DocGenerator,
   SchemaUtils,
+  SynthexPlugin,
 };
