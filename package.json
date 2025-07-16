@@ -1,6 +1,6 @@
 {
   "name": "synthex",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Type-safe LLM response simulation with streaming & error injection",
   "main": "dist/index.js",
   "type": "module",
