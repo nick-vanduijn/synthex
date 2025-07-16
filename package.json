@@ -1,29 +1,63 @@
 {
   "name": "synthex",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Type-safe LLM response simulation with streaming & error injection",
-  "main": "src/index.js",
-  "types": "src/index.d.ts",
-  "files": [
-    "src"
-  ],
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "prepare": "npm run build",
+    "example": "node examples/llm-demo.cjs"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nick-vanduijn/synthex.git"
   },
   "keywords": [
+    "typescript",
+    "library",
+    "mocking",
     "llm",
-    "simulation",
+    "ai",
+    "openai",
     "streaming",
-    "testing"
+    "tokens",
+    "finish-reason",
+    "role-based",
+    "error-simulation",
+    "testing",
+    "development",
+    "mock data",
+    "synthetic data",
+    "test automation",
+    "unit test",
+    "integration test",
+    "rapid prototyping",
+    "developer tools",
+    "simulate llm",
+    "function calling",
+    "save time",
+    "fast feedback",
+    "no-wait testing",
+    "llm simulation",
+    "mock llm",
+    "mock api",
+    "structured api",
+    "schema validation",
+    "zod alternative"
   ],
-  "author": "nick-vanduijn",
+  "author": "Nick",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/nick-vanduijn/synthex/issues"
-  },
-  "homepage": "https://github.com/nick-vanduijn/synthex#readme"
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "eslint": "^9.31.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.0.0"
+  }
 }
