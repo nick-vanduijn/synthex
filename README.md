@@ -74,7 +74,7 @@ npm install synthex
 * **Composable** schema API, like Zod but mock-first
 * **Markdown & JSON formatters** for quick debugging
 
-## 📚 Example Usage
+## Example Usage
 
 ```ts
 import { s, MockGenerator } from 'synthex';
