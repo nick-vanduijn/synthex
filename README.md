@@ -130,14 +130,14 @@ console.log(mock.data);
 
 | Type               | Builder                            |
 |--------------------|------------------------------------|
-| String             | `m.string()`                       |
-| Number             | `m.number()`                       |
-| Boolean            | `m.boolean()`                      |
-| Date / Time        | `m.date().format()`                |
-| Email, URL, UUID   | `m.email()`, `m.url()`, `m.uuid()` |
-| Arrays             | `m.array(m.string())`              |
-| Objects            | `m.object({...})`                  |
-| Enums              | `m.enum(['a', 'b'])`               |
+| String             | `s.string()`                       |
+| Number             | `s.number()`                       |
+| Boolean            | `s.boolean()`                      |
+| Date / Time        | `s.date().format()`                |
+| Email, URL, UUID   | `s.email()`, `s.url()`, `s.uuid()` |
+| Arrays             | `s.array(s.string())`              |
+| Objects            | `s.object({...})`                  |
+| Enums              | `s.enum(['a', 'b'])`               |
 | Conditional Fields | `.probability(0.5)`                |
 | Error Simulation   | `.simulateError(true)`             |
 | Streaming Output   | `generator.streamGenerate()`       |
