@@ -62,6 +62,7 @@ When building AI or LLM-powered applications, testing and prototyping can be pai
 npm install synthex
 ```
 
+https://www.npmjs.com/package/synthex
 
 ## Features
 
@@ -196,7 +197,6 @@ for await (const chunk of stream) {
   - `node examples/form-demo.cjs` — Interactive form mocker
   - `node examples/llm-demo.cjs` — LLM-style streaming and error demo
   - `node examples/advanced-demo.cjs` — Advanced: nested, error, streaming, and conditional fields
-
 
 ## FAQ
 
