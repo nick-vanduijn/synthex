@@ -129,7 +129,7 @@ class SchemaForm<T = any> implements SchemaField<T> {
   _isSchemaForm = true as const;
   name?: string;
   version?: string;
-  fields: Record<string, SchemaField<any>>;
+  fields: Record<string, SchemaField>;
   /**
    * This property is only for type extraction, not runtime use.
    * Use as: type MyType = typeof schema.infer
@@ -164,7 +164,7 @@ class SchemaForm<T = any> implements SchemaField<T> {
   constructor(params: {
     name?: string;
     version?: string;
-    fields: Record<string, SchemaField<any>>;
+    fields: Record<string, SchemaField>;
     required?: boolean;
     min?: number;
     max?: number;
@@ -198,7 +198,7 @@ class SchemaForm<T = any> implements SchemaField<T> {
     this.min = params.min;
     this.max = params.max;
     this.items = params.items;
-    this.properties = params.properties as Record<string, SchemaField<any>>;
+    this.properties = params.properties as Record<string, SchemaField>;
     this.enum = params.enum;
     this.pattern = params.pattern;
     this.format = params.format;
@@ -304,9 +304,9 @@ class SyntexError extends Error {
  *
  * */
 class RandomGenerator {
-  private seed: number;
-  private rng: () => number;
-  private randomness: "deterministic" | "fuzz" | "random";
+  private readonly seed: number;
+  private readonly rng: () => number;
+  private readonly randomness: "deterministic" | "fuzz" | "random";
 
   constructor(
     seed?: number,
@@ -460,13 +460,13 @@ type SynthexPlugin = {
 };
 
 class MockGenerator {
-  private rng: RandomGenerator;
+  private readonly rng: RandomGenerator;
   private options: MockGeneratorOptions;
   private requestCount: number = 0;
   private lastReset: number = Date.now();
   private registeredSchemas: Record<string, SchemaForm> = {};
-  private static _plugins: SynthexPlugin[] = [];
-  private _plugins: SynthexPlugin[] = [];
+  private static readonly _plugins: SynthexPlugin[] = [];
+  private readonly _plugins: SynthexPlugin[] = [];
 
   static registerPlugin(plugin: SynthexPlugin) {
     MockGenerator._plugins.push(plugin);
@@ -920,7 +920,7 @@ class MockGenerator {
     globalContext: Record<string, any>,
     currentData: Record<string, any>
   ): string {
-    return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => {
+    return template.replace(/\{\{\s*(\w+)\s*}}/g, (_, key) => {
       if (currentData[key] !== undefined) {
         return String(currentData[key]);
       }
@@ -1178,7 +1178,7 @@ abstract class SBase<TInfer = any> {
   protected _field: Partial<SchemaField> = {};
   protected _type: SchemaField["type"];
 
-  constructor(type: SchemaField["type"]) {
+  protected constructor(type: SchemaField["type"]) {
     this._type = type;
     this._field.type = type;
   }
@@ -1371,7 +1371,7 @@ class SObject<
   TFields extends Record<string, SBase>,
   TInferred = MapSBaseToInfer<TFields>,
 > extends SBase<TInferred> {
-  private _fields: TFields;
+  private readonly _fields: TFields;
   constructor(fields: TFields) {
     super("object");
     this._fields = fields;
@@ -1427,7 +1427,7 @@ class SObject<
   }
   /** Returns the compiled SchemaField object. */
   build(name?: string, version?: string): SchemaForm<TInferred> {
-    const compiledFields: Record<string, SchemaField<any>> = Object.fromEntries(
+    const compiledFields: Record<string, SchemaField> = Object.fromEntries(
       Object.entries(this._fields).map(([k, v]) => [k, v.build()])
     );
     const schema = new SchemaForm<TInferred>({
@@ -1483,7 +1483,7 @@ class SNullable<TType extends SBase> extends SBase<InferSBase<TType> | null> {
     };
   }
 }
-class SReference extends SBase<any> {
+class SReference extends SBase {
   constructor(ref: string) {
     super("reference");
     this._field.reference = ref;
@@ -1594,8 +1594,8 @@ class SchemaUtils {
     return new SchemaForm({
       name,
       version: "1.0.0",
-      fields: fields as Record<string, SchemaField<any>>,
-      properties: fields as Record<string, SchemaField<any>>,
+      fields: fields as Record<string, SchemaField>,
+      properties: fields as Record<string, SchemaField>,
     });
   }
 
@@ -1677,7 +1677,7 @@ class SchemaUtils {
           SchemaUtils.validateData(
             value,
             new SchemaForm({
-              fields: field.properties! as Record<string, SchemaField<any>>,
+              fields: field.properties! as Record<string, SchemaField>,
             })
           )
         );
